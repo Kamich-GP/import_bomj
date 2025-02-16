@@ -1,6 +1,3 @@
-# Основная логика бота
-import calendar
-
 import telebot
 import buttons
 import database
@@ -19,7 +16,7 @@ def start(message):
     user_id = message.from_user.id
     # Проверяем наличие пользователя
     if database.check_user(user_id):
-        bot.send_message(user_id, 'Добро пожаловать!')
+        bot.send_message(user_id, 'Добро пожаловать!', reply_markup=telebot.types.ReplyKeyboardRemove())
         bot.send_message(user_id, 'Выберите пункт меню:',
                          reply_markup=buttons.main_menu(database.get_pr_buttons()))
     else:
@@ -132,6 +129,135 @@ def get_loc(message, text):
         bot.send_message(user_id, 'Отправьте локацию через кнопку!')
         # Возвращение на этап получения локации
         bot.register_next_step_handler(message, get_loc, text)
+
+
+# Вход в админ-панель
+@bot.message_handler(commands=['admin'])
+def admin_message(message):
+    admin_id = 6775701667
+    if message.from_user.id == admin_id:
+        bot.send_message(admin_id, 'Добро пожаловать в админ панель!', reply_markup=buttons.admin_buttons())
+        # Переход на этап выбора
+        bot.register_next_step_handler(message, admin_choice)
+
+
+# Выбор действия
+def admin_choice(message):
+    admin_id = 6775701667
+    if message.text == 'Добавить продукт':
+        bot.send_message(admin_id, 'Введите информацию о товаре в следующем порядке:\n'
+                                   '<b>Название, описание, количество, цена, фото</b>\n\n'
+                                   'Фотографии загружать на <a href="https://postimages.org/">сайте</a> и отправить в '
+                                   'виде прямой ссылки!',
+                         reply_markup=telebot.types.ReplyKeyboardRemove(), parse_mode='HTML')
+        # Переход на этап получения товара
+        bot.register_next_step_handler(message, get_pr)
+    elif message.text == 'Удалить продукт':
+        if database.check_pr():
+            bot.send_message(admin_id, 'Выберите товар для удаления',
+                             reply_markup=buttons.admin_pr_buttons(database.get_pr_buttons()))
+            # Переход на этап получения названия
+            act = 'del'
+            bot.register_next_step_handler(message, get_pr_name, act)
+        else:
+            bot.send_message(admin_id, 'Товаров в базе нет!')
+            # Возвращение на этап выбора
+            bot.register_next_step_handler(message, admin_choice)
+    elif message.text == 'Изменить продукт':
+        if database.check_pr():
+            bot.send_message(admin_id, 'Выберите товар для изменения',
+                             reply_markup=buttons.admin_pr_buttons(database.get_pr_buttons()))
+            # Переход на этап получения названия
+            act = 'edit'
+            bot.register_next_step_handler(message, get_pr_name, act)
+        else:
+            bot.send_message(admin_id, 'Товаров в базе нет!')
+            # Возвращение на этап выбора
+            bot.register_next_step_handler(message, admin_choice)
+    elif message.text == 'Перейти в главное меню':
+        start(message)
+
+
+# Этап получения товара
+def get_pr(message):
+    admin_id = 6775701667
+    pr_info = message.text.split(', ')
+    print(pr_info)
+    database.add_pr(pr_info[0], pr_info[1], int(pr_info[2]), float(pr_info[3]), pr_info[4])
+    bot.send_message(admin_id, 'Товар добавлен успешно!', reply_markup=buttons.admin_buttons())
+
+    # Переход на этап выбора
+    bot.register_next_step_handler(message, admin_choice)
+
+
+# Этап получения названия
+def get_pr_name(message, act):
+    admin_id = 6775701667
+    if message.text == 'Назад⬅':
+        bot.send_message(admin_id, 'Возвращаю вас обратно в панель', reply_markup=buttons.admin_buttons())
+        # Переход на этап выбора
+        bot.register_next_step_handler(message, admin_choice)
+    elif act == 'del':
+        pr_name = message.text
+        database.del_pr(pr_name)
+        bot.send_message(admin_id, 'Товар успешно удален!', reply_markup=buttons.admin_buttons())
+
+        # Переход на этап выбора
+        bot.register_next_step_handler(message, admin_choice)
+    elif act == 'edit':
+        pr_name = message.text
+        admins[admin_id] = pr_name
+        bot.send_message(admin_id, 'Какой аттрибут вы хотите изменить?',
+                         reply_markup=telebot.types.ReplyKeyboardRemove())
+        bot.send_message(admin_id, 'Выберите аттрибут ниже', reply_markup=buttons.attr_buttons())
+
+
+# Этап изменения товара
+@bot.callback_query_handler(lambda call: call.data in ['name', 'des', 'count', 'price', 'photo'])
+def change_product(call):
+    if call.data == 'name':
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(chat_id=call.message.chat.id, text='Отправьте новое название')
+        attr = call.data
+        # Переход на этап изменения
+        bot.register_next_step_handler(call.message, get_pr_to_change, attr)
+    elif call.data == 'des':
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(chat_id=call.message.chat.id, text='Отправьте новое описание')
+        attr = call.data
+        # Переход на этап изменения
+        bot.register_next_step_handler(call.message, get_pr_to_change, attr)
+    elif call.data == 'count':
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(chat_id=call.message.chat.id, text='Отправьте новое количество')
+        attr = call.data
+        # Переход на этап изменения
+        bot.register_next_step_handler(call.message, get_pr_to_change, attr)
+    elif call.data == 'price':
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(chat_id=call.message.chat.id, text='Отправьте новую цену')
+        attr = call.data
+        # Переход на этап изменения
+        bot.register_next_step_handler(call.message, get_pr_to_change, attr)
+    elif call.data == 'photo':
+        bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.send_message(chat_id=call.message.chat.id, text='Отправьте новое фото')
+        attr = call.data
+        # Переход на этап изменения
+        bot.register_next_step_handler(call.message, get_pr_to_change, attr)
+
+
+# Этап изменения
+def get_pr_to_change(message, attr):
+    admin_id = 6775701667
+    new_value = message.text
+    if attr == 'price':
+        database.change_pr(admins[admin_id], float(new_value), attr)
+    else:
+        database.change_pr(admins[admin_id], new_value, attr)
+    bot.send_message(admin_id, 'Товар успешно изменен!', reply_markup=buttons.admin_buttons())
+    # Переход на этап выбора
+    bot.register_next_step_handler(message, admin_choice)
 
 
 # Выбор товара

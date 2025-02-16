@@ -95,3 +95,33 @@ def admin_buttons():
     kb.row(but4)
 
     return kb
+
+
+# Кнопки товаров для админ-панели
+def admin_pr_buttons(products):
+    # Создаем пространство
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # Создаем сами кнопки
+    back = types.KeyboardButton('Назад⬅')
+    all_products = [types.KeyboardButton(i[1]) for i in products]
+    # Добавляем кнопки в пространство
+    kb.add(*all_products)
+    kb.row(back)
+
+    return kb
+
+
+def attr_buttons():
+    # Создаем пространство
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    # Создаем сами кнопки
+    name = types.InlineKeyboardButton(text='Название', callback_data='name')
+    des = types.InlineKeyboardButton(text='Описание', callback_data='des')
+    count = types.InlineKeyboardButton(text='Количество', callback_data='count')
+    price = types.InlineKeyboardButton(text='Цена', callback_data='price')
+    photo = types.InlineKeyboardButton(text='Фото', callback_data='photo')
+    # Добавляем кнопки в пространство
+    kb.add(name, des, count, price)
+    kb.row(photo)
+
+    return kb
